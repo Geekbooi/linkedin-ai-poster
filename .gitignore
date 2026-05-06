@@ -7,3 +7,5 @@ venv/
 dist/
 *.egg-info/
 .DS_Store
+bot.log
+nohup.out

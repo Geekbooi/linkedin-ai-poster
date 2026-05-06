@@ -46,7 +46,7 @@ def run() -> None:
 
         if action == "approve":
             print("      → Approved. Posting to LinkedIn...")
-            success, result = post_to_linkedin(draft)
+            success, result = post_to_linkedin(draft, story=story)
 
             if success:
                 send_message(f"🚀 <b>Posted successfully!</b>\nLinkedIn Post ID: <code>{result}</code>")

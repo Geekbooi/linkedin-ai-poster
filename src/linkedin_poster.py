@@ -11,19 +11,34 @@ HEADERS = {
 }
 
 
-def post_to_linkedin(text: str) -> tuple[bool, str]:
+def post_to_linkedin(text: str, story: dict | None = None) -> tuple[bool, str]:
     """
-    Publish a text post to LinkedIn.
+    Publish a post to LinkedIn.
+    If story is provided, attaches the article link + its preview image.
     Returns (success, post_id_or_error_message).
     """
+    if story and story.get("link"):
+        share_content = {
+            "shareCommentary": {"text": text},
+            "shareMediaCategory": "ARTICLE",
+            "media": [{
+                "status": "READY",
+                "originalUrl": story["link"],
+                "title": {"text": story["title"][:200]},
+                "description": {"text": story.get("summary", "")[:256]},
+            }],
+        }
+    else:
+        share_content = {
+            "shareCommentary": {"text": text},
+            "shareMediaCategory": "NONE",
+        }
+
     payload = {
         "author": PERSON_URN,
         "lifecycleState": "PUBLISHED",
         "specificContent": {
-            "com.linkedin.ugc.ShareContent": {
-                "shareCommentary": {"text": text},
-                "shareMediaCategory": "NONE",
-            }
+            "com.linkedin.ugc.ShareContent": share_content,
         },
         "visibility": {
             "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"

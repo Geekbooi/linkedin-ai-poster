@@ -1,6 +1,13 @@
 import sys
 import os
 
+# Load .env for local runs (no-op in CI where secrets are injected as env vars)
+from pathlib import Path
+_env_file = Path(__file__).parent.parent / ".env"
+if _env_file.exists():
+    from dotenv import load_dotenv
+    load_dotenv(_env_file)
+
 # Make sibling modules importable when run as `python src/main.py`
 sys.path.insert(0, os.path.dirname(__file__))
 

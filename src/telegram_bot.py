@@ -22,12 +22,14 @@ def _get(endpoint: str, **kwargs) -> dict:
     return resp.json()
 
 
-def send_message(text: str) -> None:
+def send_message(text: str, preview: bool = False) -> None:
+    """Send a Telegram message. Set preview=True to let Telegram unfurl the
+    first link, which is how you see the image LinkedIn will attach."""
     _post("sendMessage", json={
         "chat_id":                  CHAT_ID,
         "text":                     text,
         "parse_mode":               "HTML",
-        "disable_web_page_preview": True,
+        "disable_web_page_preview": not preview,
     })
 
 
@@ -72,7 +74,7 @@ def send_draft_for_approval(draft: str, story: dict, attempt: int = 1) -> tuple[
         f"✏️ <b>edit</b> [instructions] — rewrite it\n"
         f"⏭️ <b>skip</b> — try a different story"
     )
-    send_message(header)
+    send_message(header, preview=True)
     return _wait_for_response()
 
 

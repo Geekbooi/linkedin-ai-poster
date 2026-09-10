@@ -14,14 +14,29 @@ Post structure:
 4. Hashtags — 3–5 relevant tags on the final line, no more.
 
 Rules:
-- 150–250 words maximum
-- Simple, direct language — no jargon, no fluff
-- Professional but conversational tone
+- 100-160 words. Shorter is better. Cut every sentence that isn't earning its place.
+- Never use dashes as punctuation. No em dashes, no en dashes, no hyphens joining
+  clauses. Use a comma, a full stop, or split the sentence instead.
+- Write like a person typing, not like a brand. Contractions are good. Vary the
+  sentence length. Let a short sentence land on its own.
+- Simple, direct language. No jargon, no fluff, no LinkedIn-guru cadence.
+- Don't stack one-line paragraphs for dramatic effect. That reads as AI-written.
 - Rotate between formats: insights, quick tips, breakdowns, opinions, trend analysis
-- Never use: "game-changer", "revolutionize", "the future is here", "in today's world"
+- Never use: "game-changer", "revolutionize", "the future is here", "in today's world",
+  "isn't just X, it's Y", "here's the thing", "let that sink in"
 - Use clean line spacing for readability
 
 Output only the final LinkedIn post, ready to publish."""
+
+
+def _text(response) -> str:
+    """Concatenate the text blocks of a response.
+
+    Never index content[0] — models with adaptive thinking put a ThinkingBlock
+    there, and whether they do varies per request.
+    """
+    parts = [b.text for b in response.content if getattr(b, "type", None) == "text"]
+    return "".join(parts).strip()
 
 
 def pick_best_story(stories: list[dict]) -> dict:
@@ -32,7 +47,8 @@ def pick_best_story(stories: list[dict]) -> dict:
 
     response = client.messages.create(
         model="claude-sonnet-5",
-        max_tokens=10,
+        max_tokens=16,
+        thinking={"type": "disabled"},
         messages=[{
             "role": "user",
             "content": (
@@ -45,7 +61,7 @@ def pick_best_story(stories: list[dict]) -> dict:
     )
 
     try:
-        idx = int(response.content[0].text.strip()) - 1
+        idx = int(_text(response)) - 1
         return stories[max(0, min(idx, len(stories) - 1))]
     except (ValueError, IndexError):
         return stories[0]
@@ -65,9 +81,9 @@ def generate_post(story: dict, feedback: str | None = None) -> str:
 
     response = client.messages.create(
         model="claude-sonnet-5",
-        max_tokens=1024,
+        max_tokens=4096,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": base_prompt}],
     )
 
-    return response.content[0].text.strip()
+    return _text(response)

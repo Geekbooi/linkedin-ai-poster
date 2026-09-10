@@ -7,7 +7,7 @@ CHAT_ID    = os.environ["TELEGRAM_CHAT_ID"]
 BASE_URL   = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 POLL_INTERVAL  = 20   # seconds between getUpdates calls
-APPROVAL_TIMEOUT = 3600  # 1 hour max wait
+APPROVAL_TIMEOUT = int(os.getenv("APPROVAL_TIMEOUT_SECONDS", 3600))  # 1 hour max wait
 
 
 def _post(endpoint: str, **kwargs) -> dict:
@@ -56,6 +56,7 @@ def send_draft_for_approval(draft: str, story: dict, attempt: int = 1) -> tuple[
     Returns:
         ("approve", None)         — user approved, post it
         ("edit",    "<feedback>") — user wants changes
+        ("skip",    None)         — user rejected this story entirely
         ("timeout", None)         — no response within the window
     """
     header = (
@@ -67,8 +68,9 @@ def send_draft_for_approval(draft: str, story: dict, attempt: int = 1) -> tuple[
         f"{draft}\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"Reply:\n"
-        f"✅ <b>approve</b>\n"
-        f"✏️ <b>edit</b> [your instructions]"
+        f"✅ <b>approve</b> — publish it\n"
+        f"✏️ <b>edit</b> [instructions] — rewrite it\n"
+        f"⏭️ <b>skip</b> — try a different story"
     )
     send_message(header)
     return _wait_for_response()
@@ -101,6 +103,9 @@ def _wait_for_response() -> tuple[str, str | None]:
                 send_message("✅ Approved! Posting to LinkedIn now...")
                 return "approve", None
 
+            if lower in ("skip", "next"):
+                return "skip", None
+
             if lower.startswith("edit"):
                 feedback = text[4:].strip().lstrip(":").strip()
                 if not feedback:
@@ -113,8 +118,12 @@ def _wait_for_response() -> tuple[str, str | None]:
                 "❓ I didn't understand that.\n\n"
                 "Reply with:\n"
                 "✅ <b>approve</b>\n"
-                "✏️ <b>edit</b> [your instructions]"
+                "✏️ <b>edit</b> [your instructions]\n"
+                "⏭️ <b>skip</b>"
             )
 
-    send_message("⏰ Approval window closed (1 hour). Post was <b>not</b> published.")
+    send_message(
+        f"⏰ Approval window closed ({APPROVAL_TIMEOUT // 60} min). "
+        "Post was <b>not</b> published."
+    )
     return "timeout", None

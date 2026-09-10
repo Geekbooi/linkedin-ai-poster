@@ -31,7 +31,7 @@ def pick_best_story(stories: list[dict]) -> dict:
     )
 
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-sonnet-5",
         max_tokens=10,
         messages=[{
             "role": "user",
@@ -64,7 +64,7 @@ def generate_post(story: dict, feedback: str | None = None) -> str:
         base_prompt += f"\n\n---\nThe previous draft was rejected. User feedback:\n{feedback}\nIncorporate this feedback while keeping the same news story."
 
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-sonnet-5",
         max_tokens=1024,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": base_prompt}],

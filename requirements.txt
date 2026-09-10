@@ -1,4 +1,6 @@
-anthropic>=0.40.0
-feedparser>=6.0.0
-requests>=2.31.0
-python-dotenv>=1.0.0
+# Major versions pinned: this runs unattended every morning, so a breaking
+# major release should never land silently. Verified against these ranges.
+anthropic>=1.4,<2
+feedparser>=6.0,<7
+requests>=2.31,<3
+python-dotenv>=1.0,<2

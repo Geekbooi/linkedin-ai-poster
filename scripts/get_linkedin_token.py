@@ -5,7 +5,8 @@ Steps:
   1. Go to https://www.linkedin.com/developers/ and create an app
   2. Add the "Share on LinkedIn" product (grants w_member_social scope)
   3. Set redirect URI to: http://localhost:8080/callback
-  4. Fill in CLIENT_ID and CLIENT_SECRET below or set as env vars
+  4. Put LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET in your .env
+     (never hardcode them here — this repo is public)
   5. Run: python scripts/get_linkedin_token.py
   6. Visit the printed URL, authorise, then paste the code shown
   7. Copy the printed access token into your .env / GitHub secret
@@ -18,9 +19,16 @@ import json
 import http.server
 import threading
 import webbrowser
+from pathlib import Path
 
-CLIENT_ID     = os.getenv("LINKEDIN_CLIENT_ID",     "YOUR_CLIENT_ID")
-CLIENT_SECRET = os.getenv("LINKEDIN_CLIENT_SECRET", "YOUR_CLIENT_SECRET")
+# Load .env so credentials never need to live in this file
+_env_file = Path(__file__).parent.parent / ".env"
+if _env_file.exists():
+    from dotenv import load_dotenv
+    load_dotenv(_env_file)
+
+CLIENT_ID     = os.getenv("LINKEDIN_CLIENT_ID",     "")
+CLIENT_SECRET = os.getenv("LINKEDIN_CLIENT_SECRET", "")
 REDIRECT_URI  = "http://localhost:8080/callback"
 SCOPE         = "openid profile email w_member_social"
 
@@ -83,17 +91,17 @@ def exchange_code(code: str) -> dict:
 
 def get_person_urn(token: str) -> str:
     req = urllib.request.Request(
-        "https://api.linkedin.com/v2/me",
+        "https://api.linkedin.com/v2/userinfo",
         headers={"Authorization": f"Bearer {token}"},
     )
     with urllib.request.urlopen(req) as resp:
         data = json.loads(resp.read())
-    return f"urn:li:person:{data['id']}"
+    return f"urn:li:person:{data['sub']}"
 
 
 def main():
-    if CLIENT_ID == "YOUR_CLIENT_ID":
-        print("Set LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET env vars first.")
+    if not CLIENT_ID or not CLIENT_SECRET:
+        print("Set LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET in .env first.")
         return
 
     # Start local callback server in background

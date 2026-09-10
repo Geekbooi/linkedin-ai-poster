@@ -2,11 +2,19 @@ name: LinkedIn AI Post
 
 on:
   schedule:
-    # Every other day at 8:00 AM UTC (adjust to your timezone)
-    - cron: "0 8 */2 * *"
+    # GitHub cron is UTC only and does not follow DST, so both times are
+    # registered and the guard step below drops whichever one isn't 9am
+    # in America/Detroit today.
+    - cron: "0 13 * * *"   # 09:00 EDT (Mar–Nov)
+    - cron: "0 14 * * *"   # 09:00 EST (Nov–Mar)
 
-  # Lets you trigger manually from GitHub Actions tab
+  # Lets you trigger manually from the GitHub Actions tab
   workflow_dispatch:
+
+# Never let two approval sessions compete for the same Telegram replies.
+concurrency:
+  group: linkedin-ai-post
+  cancel-in-progress: false
 
 jobs:
   generate-and-post:
@@ -14,20 +22,43 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90  # Waits up to 90 min for your Telegram reply
 
+    permissions:
+      contents: write    # to push the updated posted-story history
+
     steps:
+      - name: Skip if it is not 9am in America/Detroit
+        id: guard
+        run: |
+          HOUR=$(TZ=America/Detroit date +%H)
+          echo "Local time in America/Detroit: $(TZ=America/Detroit date)"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual run — proceeding."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ "$HOUR" = "09" ]; then
+            echo "It is the 9am hour — proceeding."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Local hour is $HOUR, not 09 — this is the off-season cron. Skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.guard.outputs.run == 'true'
         uses: actions/checkout@v4
 
       - name: Set up Python
+        if: steps.guard.outputs.run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
 
       - name: Install dependencies
+        if: steps.guard.outputs.run == 'true'
         run: pip install -r requirements.txt
 
       - name: Run pipeline
+        if: steps.guard.outputs.run == 'true'
         env:
           ANTHROPIC_API_KEY:      ${{ secrets.ANTHROPIC_API_KEY }}
           TELEGRAM_BOT_TOKEN:     ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -35,3 +66,17 @@ jobs:
           LINKEDIN_ACCESS_TOKEN:  ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
           LINKEDIN_PERSON_URN:    ${{ secrets.LINKEDIN_PERSON_URN }}
         run: python src/main.py
+
+      - name: Save posted-story history
+        # always() so a skipped story is still remembered even if a later step fails
+        if: always() && steps.guard.outputs.run == 'true'
+        run: |
+          if [ -z "$(git status --porcelain data/history.json)" ]; then
+            echo "No history change to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/history.json
+          git commit -m "chore: record posted story [skip ci]"
+          git push
